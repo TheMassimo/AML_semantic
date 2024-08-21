@@ -2,7 +2,7 @@
 /__pycache__/
 /.idea/
 /my_aml/
-/GTA5/
+/GTA5_ds/
 
 # Files to ignore
 *.spec
