@@ -205,6 +205,15 @@ def parse_args():
                        type=str,
                        default='crossentropy',
                        help='loss function')
+    #ours
+    parse.add_argument('--citySpaces_path',
+                       type=str,
+                       default='',
+                       help='path of cityScapes Dataset')
+    parse.add_argument('--gta5_path',
+                       type=str,
+                       default='',
+                       help='path of gta5 Dataset')
 
 
     return parse.parse_args()
@@ -259,8 +268,8 @@ def punto1_1(args):
     # Dataset: Cityscapes
     n_classes = args.num_classes  # Numero di classi semantiche
 
-    citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds')
-    pretrainedModel_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91')
+    citySpaces_path = args.citySpaces_path
+    pretrainedModel_path = args.pretrain_path
 
     # Dataset di addestramento
     train_dataset = CityScapesDataset(root_dir=citySpaces_path, mode='train', dimension=(256, 128))
@@ -307,9 +316,8 @@ def punto1_2(args):
     # Dataset: GTA5
     n_classes = args.num_classes  # Numero di classi semantiche
 
-
-    gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds')
-    pretrainedModel_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91')
+    gta5_path = args.gta5_path
+    pretrainedModel_path = args.pretrain_path
 
     # Dataset di addestramento
     train_dataset = Gta5Dataset(root=gta5_path, dimension=(512, 256))
@@ -352,11 +360,13 @@ def punto1_2(args):
     val(args, model, dataloader_val)
 
 def main():
-
     massimo_args = MyArgs(
         num_classes=19,
         batch_size = 16,
-        num_workers = 4
+        num_workers = 4,
+        pretrain_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91'),
+        citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds'),
+        gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds'),
     )
     #punto1_1(massimo_args)
     punto1_2(massimo_args)

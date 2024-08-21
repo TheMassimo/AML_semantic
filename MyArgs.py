@@ -4,7 +4,7 @@ class MyArgs:
                 backbone = 'CatmodelSmall',
                 pretrain_path = '',
                 use_conv_last = False,
-                num_epochs = 300,
+                num_epochs = 5,
                 epoch_start_i = 0,
                 checkpoint_step = 10,
                 validation_step = 1,
@@ -20,7 +20,8 @@ class MyArgs:
                 optimizer = 'adam',
                 loss = 'crossentropy',
                 #ours
-                
+                citySpaces_path = '',
+                gta5_path = ''
                 ):
         self.mode = mode
         self.backbone = backbone
@@ -41,3 +42,6 @@ class MyArgs:
         self.save_model_path = save_model_path
         self.optimizer = optimizer
         self.loss = loss
+        #ours
+        self.citySpaces_path = citySpaces_path
+        self.gta5_path = gta5_path
