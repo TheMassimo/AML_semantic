@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
 from model.model_stages import BiSeNet
-from datasets.cityscapes import CityScapes
-from datasets.gta5 import Gta5Dataset
+from datasets.CityScapesDataset import CityScapesDataset
+from datasets.Gta5Dataset import Gta5Dataset
 import torch
 from torch.utils.data import DataLoader
 import logging
@@ -56,7 +56,6 @@ def val(args, model, dataloader):
         print(f'mIoU per class: {miou_list}')
 
         return precision, miou
-
 
 def train(args, model, optimizer, dataloader_train, dataloader_val):
     writer = SummaryWriter(comment=''.format(args.optimizer))
@@ -121,7 +120,7 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Unsupported value encountered.')
 
-
+#to get args from command line
 def parse_args():
     parse = argparse.ArgumentParser()
 
@@ -130,7 +129,6 @@ def parse_args():
                        type=str,
                        default='train',
     )
-
     parse.add_argument('--backbone',
                        dest='backbone',
                        type=str,

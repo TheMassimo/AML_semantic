@@ -3,9 +3,14 @@ import pandas as pd
 from PIL import Image
 from torchvision import transforms
 from torch.utils.data import Dataset
-#from utils import pil_loader  # Assicurati che questa funzione sia correttamente definita
 
-class CityScapes(Dataset):
+def pil_loader(path):
+    with open(path, 'rb') as f:
+        img = Image.open(f)
+        return img.convert('RGB')
+	
+
+class CityScapesDataset(Dataset):
     def __init__(self, root_dir="C:\\Users\\miria\\Desktop\\AML\\Cityscapes\\Cityspaces", mode='train', dimension= (2048, 1024), transform=None):
         """
         Inizializza il dataset CityScapes.
@@ -15,7 +20,7 @@ class CityScapes(Dataset):
             mode (str): Modalità del dataset ('train', 'val', 'test').
             dimension (int, int): Altezza e Larghezza a cui ridimensionare le immagini.
         """
-        super(CityScapes, self).__init__()
+        super(CityScapesDataset, self).__init__()
 
         self.root_dir = root_dir
         self.mode = mode  # mode can be 'train', 'val', or 'test'
