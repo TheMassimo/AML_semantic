@@ -15,7 +15,6 @@ class Gta5Dataset(Dataset):
         self.resize = dimension
 
         mapping_path = json_path = os.path.join(os.path.dirname(__file__), 'gta5_mapping.json')
-        print("massimo", mapping_path)
         self.lb_map = self._load_label_map(mapping_path)
 
         # Define the transform pipeline for images and labels
