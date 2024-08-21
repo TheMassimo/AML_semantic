@@ -19,6 +19,8 @@ class MyArgs:
                 save_model_path = None,
                 optimizer = 'adam',
                 loss = 'crossentropy',
+                #ours
+                
                 ):
         self.mode = mode
         self.backbone = backbone

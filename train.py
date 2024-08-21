@@ -13,6 +13,7 @@ import torch.cuda.amp as amp
 from utils import poly_lr_scheduler
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
 from tqdm import tqdm
+import os
 from MyArgs import MyArgs
 
 
@@ -254,22 +255,15 @@ def default():
     # final test
     val(args, model, dataloader_val)
 
-def punto1_1():
-
-    args = parse_args()
-
+def punto1_1(args):
     # Dataset: Cityscapes
-    n_classes = 19  # Numero di classi semantiche
+    n_classes = args.num_classes  # Numero di classi semantiche
 
-    # Modalità
-    mode = args.mode
-
-    citySpaces_path ="C:\\Users\\miria\\Desktop\\AML\\Cityscapes\\Cityspaces" #os.path.join( "Desktop", "AML", "CityScapes", "Cityspaces")
-    pretrainedModel_path = "C:\\Users\\miria\\Desktop\\AML\\AML_Semantic_DA-master\\pretrained_models\\STDCNet813M_73.91" #os.path.join( "Desktop", "AML", "AML_Semantic_DA-master", "pretrained_models", "STDCNet813M_73.91.tar")
+    citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds')
+    pretrainedModel_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91')
 
     # Dataset di addestramento
-    train_dataset = CityScapes(root_dir=citySpaces_path, mode='train', dimension=(256, 128))
-    print("1111111")
+    train_dataset = CityScapesDataset(root_dir=citySpaces_path, mode='train', dimension=(256, 128))
     dataloader_train = DataLoader(train_dataset,
                                 batch_size=args.batch_size,
                                 shuffle=False,
@@ -279,7 +273,7 @@ def punto1_1():
     print(args.batch_size)
 
     # Dataset di validazione
-    val_dataset = CityScapes(root_dir=citySpaces_path, mode='val', dimension=(256, 128))
+    val_dataset = CityScapesDataset(root_dir=citySpaces_path, mode='val', dimension=(256, 128))
     dataloader_val = DataLoader(val_dataset,
                                 batch_size=1,
                                 shuffle=False,
@@ -288,8 +282,6 @@ def punto1_1():
 
     # Modello: STDC pre-addestrato su ImageNet
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=pretrainedModel_path)
-
-
 
     # Utilizzo della GPU se disponibile
     device = torch.device("cuda" if torch.cuda.is_available() and args.use_gpu else "cpu")
@@ -311,11 +303,64 @@ def punto1_1():
     # final test
     val(args, model, dataloader_val)
 
+def punto1_2(args):
+    # Dataset: GTA5
+    n_classes = args.num_classes  # Numero di classi semantiche
+
+
+    gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds')
+    pretrainedModel_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91')
+
+    # Dataset di addestramento
+    train_dataset = Gta5Dataset(root=gta5_path, dimension=(512, 256))
+    dataloader_train = DataLoader(train_dataset,
+                                batch_size=args.batch_size,
+                                shuffle=False,
+                                num_workers=args.num_workers,
+                                pin_memory=False,
+                                drop_last=True)
+
+    # Dataset di validazione (opzionale, usando lo stesso dataset)
+    val_dataset = Gta5Dataset(root=gta5_path, dimension=(512, 256))
+    dataloader_val = DataLoader(val_dataset,
+                                batch_size=1,
+                                shuffle=False,
+                                num_workers=args.num_workers,
+                                drop_last=False)
+
+    # Modello: STDC pre-addestrato su ImageNet
+    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=pretrainedModel_path)
+
+    # Utilizzo della GPU se disponibile
+    device = torch.device("cuda" if torch.cuda.is_available() and args.use_gpu else "cpu")
+    model = model.to(device)
+
+    # Costruzione dell'ottimizzatore
+    if args.optimizer == 'rmsprop':
+        optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
+    elif args.optimizer == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
+    elif args.optimizer == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
+    else:
+        raise ValueError('Optimizer non supportato.')
+
+    # Train loop
+    train(args, model, optimizer, dataloader_train, dataloader_val)
+
+    # Final test
+    val(args, model, dataloader_val)
 
 def main():
 
-    massimo_args = MyArgs()
-    #punto1_1()
+    massimo_args = MyArgs(
+        num_classes=19,
+        batch_size = 16,
+        num_workers = 4
+    )
+    #punto1_1(massimo_args)
+    punto1_2(massimo_args)
+
     print("ciao")
 
 
