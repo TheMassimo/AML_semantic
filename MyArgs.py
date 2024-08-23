@@ -12,11 +12,11 @@ class MyArgs:
                 crop_width = 1024,
                 batch_size = 2,
                 learning_rate = 0.01,
-                num_workers = 4,
+                num_workers = 0,
                 num_classes = 19,
                 cuda = '0',
                 use_gpu = True,
-                save_model_path = None,
+                save_model_path = './output_models',
                 optimizer = 'adam',
                 loss = 'crossentropy',
                 #ours

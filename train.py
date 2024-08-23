@@ -62,7 +62,7 @@ def val(args, model, dataloader):
 def train(args, model, optimizer, dataloader_train, dataloader_val):
     writer = SummaryWriter(comment=''.format(args.optimizer))
 
-    scaler = amp.GradScaler()
+    scaler = torch.amp.GradScaler()
 
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     max_miou = 0
@@ -78,7 +78,8 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             label = label.long().cuda()
             optimizer.zero_grad()
 
-            with amp.autocast():
+            # Specify the device type
+            with torch.amp.autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
                 output, out16, out32 = model(data)
                 loss1 = loss_func(output, label.squeeze(1))
                 loss2 = loss_func(out16, label.squeeze(1))
@@ -110,7 +111,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 max_miou = miou
                 import os
                 os.makedirs(args.save_model_path, exist_ok=True)
-                torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+                torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', miou, epoch)
 
@@ -226,15 +227,16 @@ def default():
 
     mode = args.mode
 
-    train_dataset = CityScapes(mode)
+    train_dataset = CityScapesDataset(mode)
     dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
                     num_workers=args.num_workers,
                     pin_memory=False,
                     drop_last=True)
+    
 
-    val_dataset = CityScapes(mode='val')
+    val_dataset = CityScapesDataset(mode='val')
     dataloader_val = DataLoader(val_dataset,
                        batch_size=1,
                        shuffle=False,
@@ -327,6 +329,9 @@ def punto1_2(args):
                                 num_workers=args.num_workers,
                                 pin_memory=False,
                                 drop_last=True)
+    
+
+    
 
     # Dataset di validazione (opzionale, usando lo stesso dataset)
     val_dataset = Gta5Dataset(root=gta5_path, dimension=(512, 256))
@@ -362,16 +367,20 @@ def punto1_2(args):
 def main():
     massimo_args = MyArgs(
         num_classes=19,
-        batch_size = 16,
-        num_workers = 4,
+        batch_size = 8,
+        num_workers = 2,
         pretrain_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91'),
         citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds'),
         gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds'),
     )
+
+    # Stampa tutti gli attributi e i loro valori
+    for key, value in massimo_args.__dict__.items():
+        print(f"{key}: {value}")
+
     #punto1_1(massimo_args)
     punto1_2(massimo_args)
 
-    print("ciao")
 
 
 if __name__ == "__main__":

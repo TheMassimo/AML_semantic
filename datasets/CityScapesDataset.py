@@ -11,7 +11,7 @@ def pil_loader(path):
 	
 
 class CityScapesDataset(Dataset):
-    def __init__(self, root_dir="C:\\Users\\miria\\Desktop\\AML\\Cityscapes\\Cityspaces", mode='train', dimension= (2048, 1024), transform=None):
+    def __init__(self, root_dir="", mode='train', dimension= (2048, 1024), transform=None):
         """
         Inizializza il dataset CityScapes.
 
@@ -36,11 +36,11 @@ class CityScapesDataset(Dataset):
         self.labels_paths = []
 
         # Trasformazioni da applicare alle immagini e alle etichette
-        # normalizer = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+        normalizer = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
         self.to_tensor = transforms.Compose([
             transforms.Resize(self.resize),
             transforms.ToTensor(),
-            #normalizer
+            normalizer  # Aggiungi la normalizzazione qui
         ])
         self.to_tensor_label = transforms.Compose([
             transforms.Resize(self.resize, interpolation=Image.NEAREST),
@@ -77,8 +77,6 @@ class CityScapesDataset(Dataset):
                     # Se include_keywords è None, includi tutte le immagini
                     if include_keywords is None or any(keyword in file.lower() for keyword in include_keywords):
                         file_paths.append(os.path.join(root, file))
-        print("aAAAAAAAAAAAA")
-        print("=========>", len(file_paths))
         return file_paths
 
     def __getitem__(self, idx):
