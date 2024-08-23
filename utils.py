@@ -294,3 +294,22 @@ def group_weight(weight_group, module, norm_layer, lr):
 	weight_group.append(dict(params=group_decay, lr=lr))
 	weight_group.append(dict(params=group_no_decay, weight_decay=.0, lr=lr))
 	return weight_group
+
+####################
+### OUR FUNCTION ###
+####################
+# Function to display an image and its label side by side
+def show_image_and_label(image, label):
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Display the image
+    axs[0].imshow(image.permute(1, 2, 0))
+    axs[0].set_title("Image")
+    axs[0].axis('off')
+
+    # Display the label
+    axs[1].imshow(label.squeeze(), cmap='gray')
+    axs[1].set_title("Label")
+    axs[1].axis('off')
+
+    plt.show()

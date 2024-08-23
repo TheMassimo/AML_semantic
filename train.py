@@ -13,7 +13,9 @@ import torch.cuda.amp as amp
 from utils import poly_lr_scheduler
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
 from tqdm import tqdm
+
 import os
+from utils import show_image_and_label
 from MyArgs import MyArgs
 
 
@@ -315,71 +317,73 @@ def punto1_1(args):
     val(args, model, dataloader_val)
 
 def punto1_2(args):
-    # Dataset: GTA5
-    n_classes = args.num_classes  # Numero di classi semantiche
+    args = parse_args()
 
-    gta5_path = args.gta5_path
-    pretrainedModel_path = args.pretrain_path
+    ## dataset
+    n_classes = args.num_classes
 
-    # Dataset di addestramento
-    train_dataset = Gta5Dataset(root=gta5_path, dimension=(512, 256))
+    mode = args.mode
+
+    train_dataset = Gta5Dataset(mode = 'train')
     dataloader_train = DataLoader(train_dataset,
-                                batch_size=args.batch_size,
-                                shuffle=False,
-                                num_workers=args.num_workers,
-                                pin_memory=False,
-                                drop_last=True)
-    
+                    batch_size=args.batch_size,
+                    shuffle=False,
+                    num_workers=args.num_workers,
+                    pin_memory=False,
+                    drop_last=True)
 
-    
+    # Access the first image and label directly from the dataset
+    image, label = train_dataset[0]
 
-    # Dataset di validazione (opzionale, usando lo stesso dataset)
-    val_dataset = Gta5Dataset(root=gta5_path, dimension=(512, 256))
+    # Display the image and label using the same function as before
+    show_image_and_label(image, label)
+
+    # Load a batch of images and labels from the DataLoader
+    val_dataset = Gta5Dataset(mode = 'val')
     dataloader_val = DataLoader(val_dataset,
-                                batch_size=1,
-                                shuffle=False,
-                                num_workers=args.num_workers,
-                                drop_last=False)
+                        batch_size=1,
+                        shuffle=False,
+                        num_workers=args.num_workers,
+                        drop_last=False)
 
-    # Modello: STDC pre-addestrato su ImageNet
-    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=pretrainedModel_path)
+    print(len(train_dataset))
+    print(len(val_dataset))
 
-    # Utilizzo della GPU se disponibile
-    device = torch.device("cuda" if torch.cuda.is_available() and args.use_gpu else "cpu")
-    model = model.to(device)
+    ## model
+    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
 
-    # Costruzione dell'ottimizzatore
+    if torch.cuda.is_available() and args.use_gpu:
+        model = torch.nn.DataParallel(model).cuda()
+
+    ## optimizer
+    # build optimizer
     if args.optimizer == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
     elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
+        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=5e-4)
     elif args.optimizer == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-    else:
-        raise ValueError('Optimizer non supportato.')
+    else:  # rmsprop
+        print('not supported optimizer \n')
 
-    # Train loop
+    ## train loop
     train(args, model, optimizer, dataloader_train, dataloader_val)
-
-    # Final test
+    # final test
     val(args, model, dataloader_val)
 
 def main():
-    massimo_args = MyArgs(
-        num_classes=19,
-        batch_size = 8,
-        num_workers = 2,
-        pretrain_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91'),
-        citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds'),
-        gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds'),
-    )
 
-    # Stampa tutti gli attributi e i loro valori
-    for key, value in massimo_args.__dict__.items():
-        print(f"{key}: {value}")
-
+    massimo_args = parse_args()
+    massimo_args.num_classes=19
+    massimo_args.batch_size = 8
+    massimo_args.num_workers = 2
+    massimo_args.pretrain_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91')
+    massimo_args.citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds')
+    massimo_args.gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds')
+    
+    
     #punto1_1(massimo_args)
-    punto1_2(massimo_args)
+    #punto1_2(massimo_args)
 
 
 
