@@ -18,7 +18,11 @@ class Gta5Dataset(Dataset):
         self.lb_map = self._load_label_map(mapping_path)
 
         # Define the transform pipeline for images and labels
-        self.to_tensor = transforms.ToTensor()
+        normalizer = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+        self.to_tensor = transforms.Compose([
+            transforms.ToTensor(),
+            normalizer  # Aggiungi la normalizzazione qui
+        ])
         self.to_tensor_label = transforms.PILToTensor()
 
         # List all image and label files
@@ -44,7 +48,7 @@ class Gta5Dataset(Dataset):
         image = Image.open(image_path).resize(self.resize, Image.BILINEAR)
         label = Image.open(label_path).resize(self.resize, Image.NEAREST)
 
-        # Convert to tensor
+        # Convert to tensor and normalize the image
         image = self.to_tensor(image)
         label = self.to_tensor_label(label)
         label = self._convert_labels(label)
