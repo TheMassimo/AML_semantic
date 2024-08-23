@@ -137,7 +137,7 @@ def parse_args():
     parse.add_argument('--backbone',
                        dest='backbone',
                        type=str,
-                       default='CatmodelSmall',
+                       default='STDCNet813',
     )
     parse.add_argument('--pretrain_path',
                       dest='pretrain_path',
@@ -150,7 +150,7 @@ def parse_args():
                        default=False,
     )
     parse.add_argument('--num_epochs',
-                       type=int, default=300,
+                       type=int, default=50,
                        help='Number of epochs to train for')
     parse.add_argument('--epoch_start_i',
                        type=int,
@@ -162,7 +162,7 @@ def parse_args():
                        help='How often to save checkpoints (epochs)')
     parse.add_argument('--validation_step',
                        type=int,
-                       default=1,
+                       default=5,
                        help='How often to perform validation (epochs)')
     parse.add_argument('--crop_height',
                        type=int,
@@ -174,7 +174,7 @@ def parse_args():
                        help='Width of cropped/resized input image to modelwork')
     parse.add_argument('--batch_size',
                        type=int,
-                       default=2,
+                       default=8,
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
@@ -182,7 +182,7 @@ def parse_args():
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
-                       default=4,
+                       default=0,
                        help='num of workers')
     parse.add_argument('--num_classes',
                        type=int,
@@ -198,11 +198,11 @@ def parse_args():
                        help='whether to user gpu for training')
     parse.add_argument('--save_model_path',
                        type=str,
-                       default=None,
+                       default="./output_models",
                        help='path to save model')
     parse.add_argument('--optimizer',
                        type=str,
-                       default='adam',
+                       default='sgd',
                        help='optimizer, support rmsprop, sgd, adam')
     parse.add_argument('--loss',
                        type=str,
@@ -217,7 +217,9 @@ def parse_args():
                        type=str,
                        default='',
                        help='path of gta5 Dataset')
-
+    
+    # Handle unknown arguments (ignore them)
+    args, unknown = parse.parse_known_args()
 
     return parse.parse_args()
 
