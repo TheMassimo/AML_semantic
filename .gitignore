@@ -6,6 +6,8 @@
 /Cityscapes_ds/
 /GTA5_ds_2/
 /Cityscapes_ds_2/
+/model_checkpoints/
+/output_models/
 
 # Files to ignore
 *.spec
