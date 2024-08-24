@@ -101,6 +101,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
+
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             import os
             if not os.path.isdir(args.save_model_path):
@@ -332,7 +333,6 @@ def punto1_2(args):
 
     # Access the first image and label directly from the dataset
     image, label = train_dataset[0]
-
     # Display the image and label using the same function as before
     show_image_and_label(image, label)
 
@@ -379,10 +379,8 @@ def main():
     massimo_args.citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds')
     massimo_args.gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds')
     
-    
     #punto1_1(massimo_args)
     punto1_2(massimo_args)
-
 
 
 if __name__ == "__main__":

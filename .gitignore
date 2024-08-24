@@ -4,6 +4,8 @@
 /my_aml/
 /GTA5_ds/
 /Cityscapes_ds/
+/GTA5_ds_2/
+/Cityscapes_ds_2/
 
 # Files to ignore
 *.spec
