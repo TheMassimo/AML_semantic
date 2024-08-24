@@ -6,9 +6,10 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 from torch.utils.data import Dataset
+from torchvision.transforms import RandomApply
 
 class Gta5Dataset(Dataset):
-    def __init__(self, root, dimension=(1024, 512)):
+    def __init__(self, root, augmentation=False, dimension=(512, 1024)):
         super(Gta5Dataset, self).__init__()
 
         self.root = os.path.normpath(root)
@@ -17,12 +18,21 @@ class Gta5Dataset(Dataset):
         mapping_path = os.path.join(os.path.dirname(__file__), 'gta5_mapping.json')
         self.lb_map = self._load_label_map(mapping_path)
 
-        # Define the transform pipeline for images and labels
-        normalizer = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-        self.to_tensor = transforms.Compose([
-            transforms.ToTensor(),
-            normalizer  # Aggiungi la normalizzazione qui
-        ])
+        # Define the transform pipeline for images
+        if augmentation:
+            color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1)
+            transform_list = [
+                RandomApply([color_jitter], p=0.5),  # Apply randomly
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))  # Normalization
+            ]
+        else:
+            transform_list = [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))  # Normalization
+            ]
+        
+        self.to_tensor = transforms.Compose(transform_list)
         self.to_tensor_label = transforms.PILToTensor()
 
         # List all image and label files
@@ -48,7 +58,7 @@ class Gta5Dataset(Dataset):
         image = Image.open(image_path).resize(self.resize, Image.BILINEAR)
         label = Image.open(label_path).resize(self.resize, Image.NEAREST)
 
-        # Convert to tensor and normalize the image
+        # Convert to tensor and apply transformations
         image = self.to_tensor(image)
         label = self.to_tensor_label(label)
         label = self._convert_labels(label)

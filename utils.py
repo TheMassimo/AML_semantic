@@ -7,6 +7,7 @@ import pandas as pd
 import random
 import numbers
 import torchvision
+import matplotlib.pyplot as plt
 
 
 def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,

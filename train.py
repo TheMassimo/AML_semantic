@@ -224,7 +224,6 @@ def parse_args():
     return parse.parse_args()
 
 def default():
-    args = parse_args()
 
     ## dataset
     n_classes = args.num_classes
@@ -319,14 +318,11 @@ def punto1_1(args):
     val(args, model, dataloader_val)
 
 def punto1_2(args):
-    args = parse_args()
-
     ## dataset
     n_classes = args.num_classes
-
     mode = args.mode
-
-    train_dataset = Gta5Dataset(mode = 'train')
+    
+    train_dataset = Gta5Dataset(root = args.gta5_path)
     dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
@@ -341,7 +337,7 @@ def punto1_2(args):
     show_image_and_label(image, label)
 
     # Load a batch of images and labels from the DataLoader
-    val_dataset = Gta5Dataset(mode = 'val')
+    val_dataset = Gta5Dataset(root = args.gta5_path)
     dataloader_val = DataLoader(val_dataset,
                         batch_size=1,
                         shuffle=False,
@@ -385,7 +381,7 @@ def main():
     
     
     #punto1_1(massimo_args)
-    #punto1_2(massimo_args)
+    punto1_2(massimo_args)
 
 
 

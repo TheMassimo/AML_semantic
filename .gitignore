@@ -3,6 +3,7 @@
 /.idea/
 /my_aml/
 /GTA5_ds/
+/Cityscapes_ds/
 
 # Files to ignore
 *.spec
