@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms import RandomApply
 
 class Gta5Dataset(Dataset):
-    def __init__(self, root, augmentation=False, dimension=(512, 1024)):
+    def __init__(self, root, augmentation='none', reference_image_path=None, dimension=(1024, 512)):
         super(Gta5Dataset, self).__init__()
 
         self.root = os.path.normpath(root)
@@ -18,12 +18,19 @@ class Gta5Dataset(Dataset):
         mapping_path = os.path.join(os.path.dirname(__file__), 'gta5_mapping.json')
         self.lb_map = self._load_label_map(mapping_path)
 
-        # Define the transform pipeline for images
-        if augmentation:
+        # Define the transform pipeline for images based on the augmentation parameter
+        if augmentation == 'color_jitter':
             color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1)
             transform_list = [
                 RandomApply([color_jitter], p=0.5),  # Apply randomly
                 transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))  # Normalization
+            ]
+        elif augmentation == 'reinhard' and reference_image_path is not None:
+            self.ref_means, self.ref_stds = self._calculate_reference_stats(reference_image_path)
+            transform_list = [
+                transforms.ToTensor(),
+                transforms.Lambda(lambda img: self._reinhard_normalization(img)),  # Reinhard normalization
                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))  # Normalization
             ]
         else:
@@ -75,3 +82,27 @@ class Gta5Dataset(Dataset):
         label_np = label.numpy()
         label_np = np.vectorize(self.lb_map.get)(label_np)
         return torch.tensor(label_np, dtype=torch.long)
+
+    def _calculate_reference_stats(self, reference_image_path):
+        """ Calculate the mean and std of the reference image. """
+        ref_image = Image.open(reference_image_path)
+        ref_image = ref_image.resize(self.resize, Image.BILINEAR)
+        ref_tensor = transforms.ToTensor()(ref_image)
+
+        # Calculate mean and std per channel
+        means = ref_tensor.mean(dim=(1, 2))
+        stds = ref_tensor.std(dim=(1, 2))
+
+        return means, stds
+
+    def _reinhard_normalization(self, img):
+        """ Apply Reinhard normalization using precomputed reference stats. """
+        # Calculate the mean and std dev per channel of the input image
+        img_means = img.mean(dim=(1, 2))
+        img_stds = img.std(dim=(1, 2))
+        
+        # Normalize image by shifting its mean and adjusting its contrast
+        img = (img - img_means.view(3, 1, 1)) / (img_stds.view(3, 1, 1) + 1e-5)
+        img = img * self.ref_stds.view(3, 1, 1) + self.ref_means.view(3, 1, 1)
+        
+        return img
