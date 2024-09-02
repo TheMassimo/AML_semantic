@@ -7,9 +7,10 @@ from PIL import Image
 from torchvision import transforms
 from torch.utils.data import Dataset
 from torchvision.transforms import RandomApply
+import random
 
 class Gta5Dataset(Dataset):
-    def __init__(self, root, augmentation='none', reference_image_path=None, dimension=(1024, 512)):
+    def __init__(self, root, augmentation='none', reference_image_file_path=None, reference_image_folder_path=None, dimension=(1024, 512)):
         super(Gta5Dataset, self).__init__()
 
         self.root = os.path.normpath(root)
@@ -17,6 +18,11 @@ class Gta5Dataset(Dataset):
 
         mapping_path = os.path.join(os.path.dirname(__file__), 'gta5_mapping.json')
         self.lb_map = self._load_label_map(mapping_path)
+
+        # Determine reference image for Reinhard normalization
+        if reference_image_folder_path is not None:
+            reference_image_file_path = self._select_random_image(reference_image_folder_path)
+            print("Percorso", reference_image_file_path)
 
         # Define the transform pipeline for images based on the augmentation parameter
         if augmentation == 'color_jitter':
@@ -26,8 +32,8 @@ class Gta5Dataset(Dataset):
                 transforms.ToTensor(),
                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))  # Normalization
             ]
-        elif augmentation == 'reinhard' and reference_image_path is not None:
-            self.ref_means, self.ref_stds = self._calculate_reference_stats(reference_image_path)
+        elif augmentation == 'reinhard' and reference_image_file_path is not None:
+            self.ref_means, self.ref_stds = self._calculate_reference_stats(reference_image_file_path)
             transform_list = [
                 transforms.ToTensor(),
                 transforms.Lambda(lambda img: self._reinhard_normalization(img)),  # Reinhard normalization
@@ -106,3 +112,14 @@ class Gta5Dataset(Dataset):
         img = img * self.ref_stds.view(3, 1, 1) + self.ref_means.view(3, 1, 1)
         
         return img
+
+    def _select_random_image(self, folder_path):
+        """ Select a random image from a folder and its subfolders. """
+        all_images = []
+        for root, _, files in os.walk(folder_path):
+            all_images += [os.path.join(root, file) for file in files if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
+        
+        if not all_images:
+            raise ValueError("No images found in the specified reference folder path.")
+        
+        return random.choice(all_images)
