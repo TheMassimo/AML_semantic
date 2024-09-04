@@ -11,7 +11,7 @@ def pil_loader(path):
 	
 
 class CityScapesDataset(Dataset):
-    def __init__(self, root_dir="", mode='train', dimension= (2048, 1024), transform=None):
+    def __init__(self, root_dir, mode='train', dimension= (2048, 1024), transform=None):
         """
         Inizializza il dataset CityScapes.
 

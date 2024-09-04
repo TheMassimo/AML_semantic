@@ -17,6 +17,10 @@ from tqdm import tqdm
 import os
 from utils import show_image_and_label
 import sys
+import torch.nn as nn
+from torch.utils.data import DataLoader, Subset
+import torch.nn.functional as F
+
 
 
 logger = logging.getLogger()
@@ -180,7 +184,7 @@ def train_uada(args, model, optimizer_g, dataloader_gta, dataloader_cityscapes, 
         discriminator2.train()
         discriminator3.train()
 
-        tq = tqdm(total=len(dataloader_train) * args.batch_size)
+        tq = tqdm(total=len(dataloader_gta)+len(dataloader_cityscapes) * args.batch_size)
         tq.set_description('epoch %d, lr_g %f, lr_d %f' % (epoch, lr_g, lr_d))
         loss_record_g = []
         loss_record_d = []
@@ -409,6 +413,10 @@ def parse_args():
                        type=str,
                        default='',
                        help='path of gta5 Dataset')
+    parse.add_argument('--lambda_adv',
+                    type=float,
+                    default=0.0001,
+                    help='lambda for adversarial loss')
     
     # Handle unknown arguments (ignore them)
     args, unknown = parse.parse_known_args()
@@ -634,24 +642,16 @@ def test_gta_on_cityscapes_val(args):
     # final test
     val(args, model, dataloader_val)
 
-def train_unsupervised_adversarial_domain_adaptation():
-    import sys
-    from torch.utils.data import DataLoader, Subset
-
-    args = parse_args()
-
+def train_unsupervised_adversarial_domain_adaptation(args):
+    
     # Redirect stdout to a file
     output_file = 'output.log'
     with open(output_file, 'w') as f:
-        # Save the original stdout so we can restore it later
-        original_stdout = sys.stdout
-        sys.stdout = f
-
         ## dataset
         n_classes = args.num_classes
         mode = args.mode
-
-        train_dataset = Gta5Dataset(mode="train")
+        
+        train_dataset = Gta5Dataset(root = args.gta5_path, augmentation="none")
         train_subset = Subset(train_dataset, range(1500))
 
         dataloader_train = DataLoader(train_subset,
@@ -667,7 +667,7 @@ def train_unsupervised_adversarial_domain_adaptation():
         # Display the image and label using the same function as before
         show_image_and_label(image, label)
 
-        train_dataset2 = CityScapesDataset(mode="train")
+        train_dataset2 = CityScapesDataset(root_dir=args.citySpaces_path, mode="train")
         train_subset2 = Subset(train_dataset2, range(1500))
 
         dataloader_train2 = DataLoader(train_subset2,
@@ -683,7 +683,7 @@ def train_unsupervised_adversarial_domain_adaptation():
         # Display the image and label using the same function as before
         show_image_and_label(image, label)
 
-        val_dataset = CityScapesDataset(mode="val")
+        val_dataset = CityScapesDataset(root_dir=args.citySpaces_path, mode="val")
         dataloader_val = DataLoader(val_dataset,
                                     batch_size=1,
                                     shuffle=False,
@@ -713,12 +713,10 @@ def train_unsupervised_adversarial_domain_adaptation():
             print('not supported optimizer \n')
 
         ## train loop
-        train(args, model, optimizer, dataloader_train, dataloader_train2, dataloader_val)
+        train_uada(args, model, optimizer, dataloader_train, dataloader_train2, dataloader_val)
         # final test
         val(args, model, dataloader_val)
 
-        # Restore stdout to its original state
-        sys.stdout = original_stdout
 
     print(f"Output has been logged to {output_file}")
 
@@ -727,14 +725,15 @@ def main():
 
     massimo_args = parse_args()
     massimo_args.num_classes=19
-    massimo_args.batch_size = 8
+    massimo_args.batch_size = 2
     massimo_args.num_workers = 2
     massimo_args.pretrain_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91')
-    massimo_args.citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds')
+    massimo_args.citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds', 'Cityspaces')
     massimo_args.gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds')
     
     #punto1_1(massimo_args)
-    punto1_2(massimo_args)
+    train_unsupervised_adversarial_domain_adaptation(massimo_args)
+
 
 
 if __name__ == "__main__":

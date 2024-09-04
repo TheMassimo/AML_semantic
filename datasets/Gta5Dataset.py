@@ -10,13 +10,15 @@ from torchvision.transforms import RandomApply
 import random
 
 class Gta5Dataset(Dataset):
-    def __init__(self, root, augmentation='none', reference_image_file_path=None, reference_image_folder_path=None, dimension=(1024, 512)):
+    def __init__(self, root='', augmentation='none', mode='train', reference_image_file_path=None, reference_image_folder_path=None, dimension=(1024, 512),  val_split=0.2):
         super(Gta5Dataset, self).__init__()
 
-        self.root = os.path.normpath(root)
+        self.root = '/home/paolo/Desktop/AML/GTA5_ds/GTA5'
         self.resize = dimension
+        self.val_split = val_split
+        self.mode = mode
 
-        mapping_path = os.path.join(os.path.dirname(__file__), 'gta5_mapping.json')
+        mapping_path = '/home/paolo/Desktop/AML/gta5_info.json'
         self.lb_map = self._load_label_map(mapping_path)
 
         # Determine reference image for Reinhard normalization
@@ -25,14 +27,14 @@ class Gta5Dataset(Dataset):
             print("Percorso", reference_image_file_path)
 
         # Define the transform pipeline for images based on the augmentation parameter
-        if augmentation == 'color_jitter':
+        if augmentation == 'color_jitter' and mode=='train' :
             color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1)
             transform_list = [
                 RandomApply([color_jitter], p=0.5),  # Apply randomly
                 transforms.ToTensor(),
                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))  # Normalization
             ]
-        elif augmentation == 'reinhard' and reference_image_file_path is not None:
+        elif augmentation == 'reinhard' and mode=='train' and reference_image_file_path is not None:
             self.ref_means, self.ref_stds = self._calculate_reference_stats(reference_image_file_path)
             transform_list = [
                 transforms.ToTensor(),
@@ -60,18 +62,34 @@ class Gta5Dataset(Dataset):
             "label_path": [os.path.join(self.root, 'labels', lbl) for lbl in label_files]
         })
 
+        # Split the dataset into training and validation sets
+        train_size = int((1 - val_split) * len(self.data))
+        val_size = len(self.data) - train_size
+
+        self.train_data, self.val_data = random_split(self.data, [train_size, val_size])
+
+        # Store the indices for each split to access the correct data
+        if self.mode == 'train':
+            self.indices = self.train_data.indices
+        else:
+            self.indices = self.val_data.indices
+
     def __len__(self):
-        return len(self.data)
+        return len(self.indices) # Return the length of the relevant split
     
     def __getitem__(self, idx):
-        image_path = self.data["image_path"].iloc[idx]
-        label_path = self.data["label_path"].iloc[idx]
+        # Use the stored indices to access the correct data
+        index = self.indices[idx]
+        sample = self.data.iloc[index]
+
+        image_path = sample["image_path"]
+        label_path = sample["label_path"]
 
         # Load and resize image and label
         image = Image.open(image_path).resize(self.resize, Image.BILINEAR)
         label = Image.open(label_path).resize(self.resize, Image.NEAREST)
 
-        # Convert to tensor and apply transformations
+        # Convert to tensor
         image = self.to_tensor(image)
         label = self.to_tensor_label(label)
         label = self._convert_labels(label)
