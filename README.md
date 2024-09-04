@@ -12,8 +12,8 @@ This repository houses the code for our project in the "Advanced Machine Learnin
 ## Project structure
 - `datasets/`: classes to handle the datasets used in the project.
   - [CityscapesDataset](datasets/CityScapesDataset.py)
-  - [GTA5Dataset](datasets/GTA5Dataset.py)
-  - [GTA5 mapping classes](datasets/gta5_mapping.py)
+  - [GTA5Dataset](datasets/Gta5Dataset.py)
+  - [GTA5 mapping classes](datasets/gta5_mapping.json)
 
 - `model/`: implementation of the models used in the project and their components.
   - [BiSeNet](model/model_stages.py)
@@ -28,13 +28,13 @@ This repository houses the code for our project in the "Advanced Machine Learnin
 - `Project Overview.pdf`: the compiled version of the original project requirements file.
 
 ## Used dataset
-The required dataset are not included, but they can be download at the following link
+### The required dataset are not included, but they can be download at the following link:
 - Cityscapes and gta5 [datasets_drive_link](https://drive.google.com/drive/u/0/folders/1iE8wJT7tuDOVjEBZ7A3tOPZmNdroqG1m).
-Also the pre-trained model is not included, but it can be download at the following link
+### Also the pre-trained model is not included, but it can be download at the following link
 - STDCNet813 [stdcnet_drive_link](https://drive.google.com/drive/folders/1wROFwRt8qWHD4jSo8Zu1gp1d6oYJ3ns1).
 
 ## Results of various steps
 ### TESTING REAL-TIME SEMANTIC SEGMENTATION**
 ####  A) Defining the upper bound for the domain adaptation phase
   
-    
+   
