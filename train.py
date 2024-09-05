@@ -390,18 +390,30 @@ def parse_args():
                        default='crossentropy',
                        help='loss function')
     #ours
-    parse.add_argument('root_dir',
+    parse.add_argument('--root_dir',
                        type=str,
                        default='',
                        help='path of your Dataset')
-    parse.add_argument('--lambda_adv',
-                    type=float,
-                    default=0.0001,
-                    help='lambda for adversarial loss')
     parse.add_argument('--task',
                     type=str,
                     default='semantic_segmentation',
                     help='type of task')
+    parse.add_argument('--dataset',
+                    type=str,
+                    default='',
+                    help='type of dataset')
+    parse.add_argument('--augmentation',
+                    type=str,
+                    default='none',
+                    help='type of augmentation')
+    parse.add_argument('--mapping_path',
+                    type=str,
+                    default='',
+                    help='file with the mapping of GTA classes')
+    parse.add_argument('--lambda_adv',
+                type=float,
+                default=0.0001,
+                help='lambda for adversarial loss')
     parse.add_argument('--source_dir',
                 type=str,
                 default='',
@@ -465,7 +477,7 @@ def semantic_segmentation_cityscapes(args):
 
 def semantic_segmentation_gta(args):
     # Dataset di addestramento
-    train_dataset = Gta5Dataset(root=args.root_dir, mode='train', augmentation=args.augmentation)
+    train_dataset = Gta5Dataset(root=args.root_dir, mode='train', mapping_path=args.mapping_path, augmentation=args.augmentation)
     dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
@@ -479,7 +491,7 @@ def semantic_segmentation_gta(args):
     show_image_and_label(image, label)
 
     # Dataset di validazione
-    val_dataset = Gta5Dataset(root=args.root_dir, mode='val', augmentation=args.augmentation)
+    val_dataset = Gta5Dataset(root=args.root_dir, mode='val', mapping_path=args.mapping_path, augmentation=args.augmentation)
     dataloader_val = DataLoader(val_dataset,
                         batch_size=1,
                         shuffle=False,
@@ -528,7 +540,7 @@ def domain_shift(args):
         
     elif(args.dataset == 'gta5'):
         # Dataset di validazione
-        val_dataset = Gta5Dataset(root=args.root_dir, mode='val', augmentation=args.augmentation)
+        val_dataset = Gta5Dataset(root=args.root_dir, mode='val', mapping_path=args.mapping_path, augmentation=args.augmentation)
         dataloader_val = DataLoader(val_dataset,
                             batch_size=1,
                             shuffle=False,
@@ -546,7 +558,7 @@ def domain_shift(args):
 
 def domain_adaptation(args):
 
-    train_dataset = Gta5Dataset(root=args.source_dir, mode="train")
+    train_dataset = Gta5Dataset(root=args.source_dir, mode="train", mapping_path=args.mapping_path)
     train_subset = Subset(train_dataset, range(1500))
 
     dataloader_train = DataLoader(train_subset,
@@ -614,8 +626,9 @@ def domain_adaptation(args):
 
 
 def main():
-    args = parse_args()
 
+    args = parse_args()
+    print("ciao", args)
     if(args.task == 'semantic_segmentation'):
         print("Task: Semantic segmentation")
         if(args.dataset == 'cityscapes'):
@@ -635,8 +648,13 @@ def main():
 
     else:
         print("Task: Not valid")
-
+    
 
 
 if __name__ == "__main__":
     main()
+
+#mi test
+# python train.py --task semantic_segmentation --dataset cityscapes --num_classes 19  --root_dir C:\Users\maxim\Desktop\AML_semantic\Cityscapes_ds\Cityspaces --batch_size 40 --num_workers 4 --learning_rate 0.01 --num_epochs 50 --pretrain_path C:\Users\maxim\Desktop\AML_semantic\pretrained\STDCNet813M_73.91 --save_model_path C:\Users\maxim\Desktop\AML_semantic\final_model\cityscapes --optimizer sgd
+# python train.py --task semantic_segmentation --dataset gta5 --num_classes 19 --mapping_path C:\Users\maxim\Desktop\AML_semantic\datasets\gta5_mapping.json   --root_dir C:\Users\maxim\Desktop\AML_semantic\GTA5_ds --augmentation none --batch_size 40 --num_workers 4 --learning_rate 0.01 --num_epochs 50 --pretrain_path C:\Users\maxim\Desktop\AML_semantic\pretrained\STDCNet813M_73.91 --save_model_path C:\Users\maxim\Desktop\AML_semantic\final_model\gta --optimizer sgd
+# python train.py --task domain_shift --num_classes 19 --pretrain_path final_model\gta5\best.pth --root_dir Cityscapes_ds/Cityspaces  --batch_size 40 --num_workers 4 --learning_rate 0.01 --num_epochs 50  --save_model_path C:\Users\maxim\Desktop\AML_semantic\domain_shift --optimizer sgd

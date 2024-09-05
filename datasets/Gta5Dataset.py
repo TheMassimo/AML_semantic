@@ -5,12 +5,12 @@ import torch
 import numpy as np
 from PIL import Image
 from torchvision import transforms
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, random_split
 from torchvision.transforms import RandomApply
 import random
 
 class Gta5Dataset(Dataset):
-    def __init__(self, root='', augmentation='none', mode='train', reference_image_file_path=None, reference_image_folder_path=None, dimension=(1024, 512),  val_split=0.2):
+    def __init__(self, root='', augmentation='none', mode='train', mapping_path='', reference_image_file_path=None, reference_image_folder_path=None, dimension=(1024, 512),  val_split=0.2):
         super(Gta5Dataset, self).__init__()
 
         self.root = root
@@ -18,8 +18,8 @@ class Gta5Dataset(Dataset):
         self.val_split = val_split
         self.mode = mode
 
-        mapping_path = '/home/paolo/Desktop/AML/gta5_info.json'
-        self.lb_map = self._load_label_map(mapping_path)
+        self.mapping_path = mapping_path
+        self.lb_map = self._load_label_map(self.mapping_path)
 
         # Determine reference image for Reinhard normalization
         if reference_image_folder_path is not None:
@@ -31,7 +31,18 @@ class Gta5Dataset(Dataset):
             augmentation == 'contrast' or
             augmentation == 'saturation' or 
             augmentation == 'all') and mode=='train' :
-            color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1)
+
+            if augmentation == 'brightness':
+                color_jitter = transforms.ColorJitter(brightness=0.4)
+            elif augmentation == 'contrast':
+                color_jitter = transforms.ColorJitter(contrast=0.4)
+            elif augmentation == 'saturation':
+                color_jitter = transforms.ColorJitter(saturation=0.4)
+            elif augmentation == 'all':
+                color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1)
+            else:
+                color_jitter = None  # Nessuna trasformazione di ColorJitter se non specificato
+
             transform_list = [
                 RandomApply([color_jitter], p=0.5),  # Apply randomly
                 transforms.ToTensor(),
