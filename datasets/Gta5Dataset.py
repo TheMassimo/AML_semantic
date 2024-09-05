@@ -13,7 +13,7 @@ class Gta5Dataset(Dataset):
     def __init__(self, root='', augmentation='none', mode='train', reference_image_file_path=None, reference_image_folder_path=None, dimension=(1024, 512),  val_split=0.2):
         super(Gta5Dataset, self).__init__()
 
-        self.root = '/home/paolo/Desktop/AML/GTA5_ds/GTA5'
+        self.root = root
         self.resize = dimension
         self.val_split = val_split
         self.mode = mode
@@ -27,7 +27,10 @@ class Gta5Dataset(Dataset):
             print("Percorso", reference_image_file_path)
 
         # Define the transform pipeline for images based on the augmentation parameter
-        if augmentation == 'color_jitter' and mode=='train' :
+        if (augmentation == 'brightness' or
+            augmentation == 'contrast' or
+            augmentation == 'saturation' or 
+            augmentation == 'all') and mode=='train' :
             color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1)
             transform_list = [
                 RandomApply([color_jitter], p=0.5),  # Apply randomly

@@ -314,3 +314,8 @@ def show_image_and_label(image, label):
     axs[1].axis('off')
 
     plt.show()
+
+def pil_loader(path):
+    with open(path, 'rb') as f:
+        img = Image.open(f)
+        return img.convert('RGB')

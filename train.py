@@ -4,7 +4,7 @@ from model.model_stages import BiSeNet
 from datasets.CityScapesDataset import CityScapesDataset
 from datasets.Gta5Dataset import Gta5Dataset
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 import logging
 import argparse
 import numpy as np
@@ -15,11 +15,11 @@ from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class
 from tqdm import tqdm
 
 import os
-from utils import show_image_and_label
 import sys
+from utils import show_image_and_label
 import torch.nn as nn
-from torch.utils.data import DataLoader, Subset
 import torch.nn.functional as F
+
 
 
 
@@ -144,24 +144,12 @@ class Discriminator(nn.Module):
          # Upsample the final output
         x = self.upsample(x)
 
-
         return x
     
 def train_uada(args, model, optimizer_g, dataloader_gta, dataloader_cityscapes, dataloader_val):
-  output_file = 'training_output.log'
-  with open(output_file, 'w') as f:
-    # Save the original stdout and stderr so we can restore them later
-    '''
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-    sys.stdout = f
-    sys.stderr = f
-    '''
-
     discriminator1 = torch.nn.DataParallel(Discriminator()).cuda()
     discriminator2 = Discriminator().cuda()
     discriminator3 = Discriminator().cuda()
-
 
     writer = SummaryWriter(comment=''.format(args.optimizer))
 
@@ -171,20 +159,20 @@ def train_uada(args, model, optimizer_g, dataloader_gta, dataloader_cityscapes, 
     seg_loss_func = nn.CrossEntropyLoss(ignore_index=255)
     adv_loss_func = nn.BCEWithLogitsLoss()                        #loss uguale per entrambe le parti? cuh
 
-    optimizer_d = torch.optim.Adam(discriminator1.parameters(), 0.001, betas = (0.9, 0.99))
+    optimizer_d = torch.optim.Adam(discriminator1.parameters(), 0.00005, betas = (0.9, 0.99))
 
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
         lr_g = poly_lr_scheduler(optimizer_g, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
-        lr_d = poly_lr_scheduler(optimizer_d, 0.001, iter=epoch, max_iter=args.num_epochs)
+        lr_d = poly_lr_scheduler(optimizer_d, 0.00005, iter=epoch, max_iter=args.num_epochs)
 
         model.train()
         discriminator1.train()
         discriminator2.train()
         discriminator3.train()
 
-        tq = tqdm(total=len(dataloader_gta)+len(dataloader_cityscapes) * args.batch_size)
+        tq = tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr_g %f, lr_d %f' % (epoch, lr_g, lr_d))
         loss_record_g = []
         loss_record_d = []
@@ -242,7 +230,6 @@ def train_uada(args, model, optimizer_g, dataloader_gta, dataloader_cityscapes, 
             output_cityscapes = output_cityscapes.detach()
             output_gta = output_gta.detach()
 
-
             with amp.autocast():
 
                 # Forward pass for discriminator
@@ -272,7 +259,6 @@ def train_uada(args, model, optimizer_g, dataloader_gta, dataloader_cityscapes, 
             optimizer_d.zero_grad()
             optimizer_g.zero_grad()
 
-
             scaler.scale(loss_d_t1).backward()
             scaler.step(optimizer_d)
             scaler.update()
@@ -280,7 +266,6 @@ def train_uada(args, model, optimizer_g, dataloader_gta, dataloader_cityscapes, 
             loss_G = seg_loss + weighted_loss
 
             loss_D = loss_d_t1 + loss_d_s1
-
 
             tq.update(args.batch_size)
             tq.set_postfix(loss_G='%.6f' % loss_G, loss_D='%.6f' % loss_D)
@@ -405,69 +390,31 @@ def parse_args():
                        default='crossentropy',
                        help='loss function')
     #ours
-    parse.add_argument('--citySpaces_path',
+    parse.add_argument('root_dir',
                        type=str,
                        default='',
-                       help='path of cityScapes Dataset')
-    parse.add_argument('--gta5_path',
-                       type=str,
-                       default='',
-                       help='path of gta5 Dataset')
+                       help='path of your Dataset')
     parse.add_argument('--lambda_adv',
                     type=float,
                     default=0.0001,
                     help='lambda for adversarial loss')
+    parse.add_argument('--task',
+                    type=str,
+                    default='semantic_segmentation',
+                    help='type of task')
+    parse.add_argument('--source_dir',
+                type=str,
+                default='',
+                help='directory of source dataset')
+    parse.add_argument('--target_dir',
+                type=str,
+                default='',
+                help='directory of target dataset')
     
     # Handle unknown arguments (ignore them)
     args, unknown = parse.parse_known_args()
 
     return parse.parse_args()
-
-def default_main():
-
-    ## dataset
-    n_classes = args.num_classes
-
-    mode = args.mode
-
-    train_dataset = CityScapesDataset(mode)
-    dataloader_train = DataLoader(train_dataset,
-                    batch_size=args.batch_size,
-                    shuffle=False,
-                    num_workers=args.num_workers,
-                    pin_memory=False,
-                    drop_last=True)
-    
-
-    val_dataset = CityScapesDataset(mode='val')
-    dataloader_val = DataLoader(val_dataset,
-                       batch_size=1,
-                       shuffle=False,
-                       num_workers=args.num_workers,
-                       drop_last=False)
-
-    ## model
-    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
-
-    if torch.cuda.is_available() and args.use_gpu:
-        model = torch.nn.DataParallel(model).cuda()
-
-    ## optimizer
-    # build optimizer
-    if args.optimizer == 'rmsprop':
-        optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
-    elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
-    elif args.optimizer == 'adam':
-        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-    else:  # rmsprop
-        print('not supported optimizer \n')
-        return None
-
-    ## train loop
-    train(args, model, optimizer, dataloader_train, dataloader_val)
-    # final test
-    val(args, model, dataloader_val)
 
 def semantic_segmentation_cityscapes(args):
     # Dataset di addestramento
@@ -564,135 +511,86 @@ def semantic_segmentation_gta(args):
     # final test
     val(args, model, dataloader_val)
 
-def domain_shift_gta_cityscapes(args):
-
-    #citySpaces_path ="C:\\Users\\miria\\Desktop\\AML\\Cityscapes\\Cityspaces"
-    pretrainedModel_GTA_path = '/home/paolo/Desktop/AML/3_final_model_GTA5_no_aug/best.pth'
-
+def domain_shift(args):
     # Modello: STDC pre-addestrato su ImageNet con fine tuning su GTA5
     model = BiSeNet(backbone=args.backbone, n_classes=args.num_classes, use_conv_last=args.use_conv_last)
     model.load_state_dict(torch.load(args.pretrain_path))
     model.eval()
 
+    if(args.dataset == 'cityscapes'):
+        # Dataset di validazione
+        val_dataset = CityScapesDataset(root_dir=args.root_dir, mode='val', dimension=(512, 1024))
+        dataloader_val = DataLoader(val_dataset,
+                                    batch_size=1,
+                                    shuffle=False,
+                                    num_workers=args.num_workers,
+                                    drop_last=False)
+        
+    elif(args.dataset == 'gta5'):
+        # Dataset di validazione
+        val_dataset = Gta5Dataset(root=args.root_dir, mode='val', augmentation=args.augmentation)
+        dataloader_val = DataLoader(val_dataset,
+                            batch_size=1,
+                            shuffle=False,
+                            num_workers=args.num_workers,
+                            drop_last=False)
+    else:
+        print("dataset not valid")
+        return
 
-    # Dataset di validazione
-    val_dataset = CityScapesDataset(root_dir=args.root_dir, mode='val', dimension=(512, 1024))
+    if torch.cuda.is_available() and args.use_gpu:
+        model = torch.nn.DataParallel(model).cuda()
+
+    # final test
+    val(args, model, dataloader_val)
+
+def domain_adaptation(args):
+
+    train_dataset = Gta5Dataset(root=args.source_dir, mode="train")
+    train_subset = Subset(train_dataset, range(1500))
+
+    dataloader_train = DataLoader(train_subset,
+                                    batch_size=args.batch_size,
+                                    shuffle=False,
+                                    num_workers=args.num_workers,
+                                    pin_memory=False,
+                                    drop_last=True)
+
+    # Access the first image and label directly from the dataset
+    image, label = train_subset[0]
+    # Display the image and label using the same function as before
+    show_image_and_label(image, label)
+
+    train_dataset2 = CityScapesDataset(root_dir=args.target_dir, mode="train")
+    train_subset2 = Subset(train_dataset2, range(1500))
+
+    dataloader_train2 = DataLoader(train_subset2,
+                                    batch_size=args.batch_size,
+                                    shuffle=False,
+                                    num_workers=args.num_workers,
+                                    pin_memory=False,
+                                    drop_last=True)
+
+    # Access the first image and label directly from the dataset
+    image, label = train_subset2[0]
+
+    # Display the image and label using the same function as before
+    show_image_and_label(image, label)
+
+    val_dataset = CityScapesDataset(root_dir=args.target_dir, mode="val")
     dataloader_val = DataLoader(val_dataset,
                                 batch_size=1,
                                 shuffle=False,
                                 num_workers=args.num_workers,
                                 drop_last=False)
 
-
-    if torch.cuda.is_available() and args.use_gpu:
-        model = torch.nn.DataParallel(model).cuda()
-
-
-    ## train loop
-    #train(args, model, optimizer, dataloader_train, dataloader_val)
-    # final test
-    val(args, model, dataloader_val)
-
-def Massimo_main():
-
-    args = parse_args()
-
-    if(args.task == 'semantic_segmentation'):
-        print("Task: Semantic segmentation")
-        if(args.dataset == 'cityscapes'):
-            semantic_segmentation_cityscapes(args)
-        elif(args.dataset == 'gta5'):
-            semantic_segmentation_gta(args)
-        else:
-            print("Dataset not valid")
-
-    elif(args.task == 'domain_shift'):
-        print("Task: Domain shift")
-
-    elif(args.task == 'domain_adaptation'):
-        print("Task: Domain adaptation")
-
-    else:
-        print("Task: Not valid")
-
-
-    ## dataset
-    n_classes = args.num_classes
-
-    mode = args.mode
-
-    train_dataset = CityScapesDataset(mode)
-    dataloader_train = DataLoader(train_dataset,
-                    batch_size=args.batch_size,
-                    shuffle=False,
-                    num_workers=args.num_workers,
-                    pin_memory=False,
-                    drop_last=True)
-    
-
-    val_dataset = CityScapesDataset(mode='val')
-    dataloader_val = DataLoader(val_dataset,
-                       batch_size=1,
-                       shuffle=False,
-                       num_workers=args.num_workers,
-                       drop_last=False)
+    print(len(dataloader_train))
+    print(len(dataloader_train2))
+    print(len(dataloader_val))
 
     ## model
-    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
-
-    if torch.cuda.is_available() and args.use_gpu:
-        model = torch.nn.DataParallel(model).cuda()
-
-    ## optimizer
-    # build optimizer
-    if args.optimizer == 'rmsprop':
-        optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
-    elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
-    elif args.optimizer == 'adam':
-        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-    else:  # rmsprop
-        print('not supported optimizer \n')
-        return None
-
-    ## train loop
-    train(args, model, optimizer, dataloader_train, dataloader_val)
-    # final test
-    val(args, model, dataloader_val)
-
-
-
-def train_gta_augmentation(args):
-    ## dataset
-    n_classes = args.num_classes
-    mode = args.mode
-    
-    train_dataset = Gta5Dataset(root = args.gta5_path, augmentation="color_jitter")
-    dataloader_train = DataLoader(train_dataset,
-                    batch_size=args.batch_size,
-                    shuffle=False,
-                    num_workers=args.num_workers,
-                    pin_memory=False,
-                    drop_last=True)
-
-    # Access the first image and label directly from the dataset
-    image, label = train_dataset[0]
-    # Display the image and label using the same function as before
-    show_image_and_label(image, label)
-
-    # Load a batch of images and labels from the DataLoader
-    val_dataset = Gta5Dataset(root = args.gta5_path)
-    dataloader_val = DataLoader(val_dataset,
-                        batch_size=1,
-                        shuffle=False,
-                        num_workers=args.num_workers,
-                        drop_last=False)
-
-    print(len(train_dataset))
-    print(len(val_dataset))
-
-    ## model
-    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
+    model = BiSeNet(backbone=args.backbone, n_classes=args.num_classes,
+                    pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
 
     if torch.cuda.is_available() and args.use_gpu:
         model = torch.nn.DataParallel(model).cuda()
@@ -709,124 +607,34 @@ def train_gta_augmentation(args):
         print('not supported optimizer \n')
 
     ## train loop
-    train(args, model, optimizer, dataloader_train, dataloader_val)
+    train_uada(args, model, optimizer, dataloader_train, dataloader_train2, dataloader_val)
     # final test
     val(args, model, dataloader_val)
 
-def test_gta_on_cityscapes_val(args):
-    n_classes = args.num_classes
-    citySpaces_path = args.citySpaces_path
-    pretrainedModel_GTA_path = args.pretrain_path
-
-    # Modello: STDC pre-addestrato su ImageNet con fine tuning su GTA5
-    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=pretrainedModel_GTA_path)
-    model.eval()
-
-    # Dataset di validazione
-    val_dataset = CityScapesDataset(root_dir=citySpaces_path, mode='val', dimension=(256, 128))
-    dataloader_val = DataLoader(val_dataset,
-                                batch_size=1,
-                                shuffle=False,
-                                num_workers=args.num_workers,
-                                drop_last=False)
-
-    if torch.cuda.is_available() and args.use_gpu:
-        model = torch.nn.DataParallel(model).cuda()
-
-    # final test
-    val(args, model, dataloader_val)
-
-def train_unsupervised_adversarial_domain_adaptation(args):
-    
-    # Redirect stdout to a file
-    output_file = 'output.log'
-    with open(output_file, 'w') as f:
-        ## dataset
-        n_classes = args.num_classes
-        mode = args.mode
-        
-        train_dataset = Gta5Dataset(root = args.gta5_path, augmentation="none")
-        train_subset = Subset(train_dataset, range(1500))
-
-        dataloader_train = DataLoader(train_subset,
-                                    batch_size=args.batch_size,
-                                    shuffle=False,
-                                    num_workers=args.num_workers,
-                                    pin_memory=False,
-                                    drop_last=True)
-
-        # Access the first image and label directly from the dataset
-        image, label = train_subset[0]
-
-        # Display the image and label using the same function as before
-        show_image_and_label(image, label)
-
-        train_dataset2 = CityScapesDataset(root_dir=args.citySpaces_path, mode="train")
-        train_subset2 = Subset(train_dataset2, range(1500))
-
-        dataloader_train2 = DataLoader(train_subset2,
-                                    batch_size=args.batch_size,
-                                    shuffle=False,
-                                    num_workers=args.num_workers,
-                                    pin_memory=False,
-                                    drop_last=True)
-
-        # Access the first image and label directly from the dataset
-        image, label = train_subset2[0]
-
-        # Display the image and label using the same function as before
-        show_image_and_label(image, label)
-
-        val_dataset = CityScapesDataset(root_dir=args.citySpaces_path, mode="val")
-        dataloader_val = DataLoader(val_dataset,
-                                    batch_size=1,
-                                    shuffle=False,
-                                    num_workers=args.num_workers,
-                                    drop_last=False)
-
-        print(len(dataloader_train))
-        print(len(dataloader_train2))
-        print(len(dataloader_val))
-
-        ## model
-        model = BiSeNet(backbone=args.backbone, n_classes=n_classes,
-                        pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
-
-        if torch.cuda.is_available() and args.use_gpu:
-            model = torch.nn.DataParallel(model).cuda()
-
-        ## optimizer
-        # build optimizer
-        if args.optimizer == 'rmsprop':
-            optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
-        elif args.optimizer == 'sgd':
-            optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=5e-4)
-        elif args.optimizer == 'adam':
-            optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-        else:  # rmsprop
-            print('not supported optimizer \n')
-
-        ## train loop
-        train_uada(args, model, optimizer, dataloader_train, dataloader_train2, dataloader_val)
-        # final test
-        val(args, model, dataloader_val)
-
-
-    print(f"Output has been logged to {output_file}")
 
 
 def main():
+    args = parse_args()
 
-    massimo_args = parse_args()
-    massimo_args.num_classes=19
-    massimo_args.batch_size = 2
-    massimo_args.num_workers = 2
-    massimo_args.pretrain_path = os.path.join(os.path.dirname(__file__), 'pretrained', 'STDCNet813M_73.91')
-    massimo_args.citySpaces_path = os.path.join(os.path.dirname(__file__), 'CityScapes_ds', 'Cityspaces')
-    massimo_args.gta5_path = os.path.join(os.path.dirname(__file__), 'GTA5_ds')
-    
-    #punto1_1(massimo_args)
-    train_unsupervised_adversarial_domain_adaptation(massimo_args)
+    if(args.task == 'semantic_segmentation'):
+        print("Task: Semantic segmentation")
+        if(args.dataset == 'cityscapes'):
+            semantic_segmentation_cityscapes(args)
+        elif(args.dataset == 'gta5'):
+            semantic_segmentation_gta(args)
+        else:
+            print("Dataset not valid")
+
+    elif(args.task == 'domain_shift'):
+        print("Task: Domain shift")
+        domain_shift(args)
+
+    elif(args.task == 'domain_adaptation'):
+        print("Task: Domain adaptation")
+        domain_adaptation(args)
+
+    else:
+        print("Task: Not valid")
 
 
 

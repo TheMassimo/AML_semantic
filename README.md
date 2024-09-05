@@ -70,14 +70,34 @@ This repository houses the code for our project in the "Advanced Machine Learnin
   - To change augmentation change "--augmentation" with: brightness, contrast, saturation, all
 
   ```bash
-  train.py --task semantic_segmentation --dataset gta5 --num_classes 19  --root_dir GTA5_ds --augmentation all --batch_size 40 --num_workers 4 --learning_rate 0.01 --num_epochs 50 --pretrain_path pretrained/STDCNet813M_73.91 --save_model_path final_model\gta5 --optimizer sgd
+  train.py --task semantic_segmentation --dataset gta5 --num_classes 19  --root_dir GTA5_ds --augmentation all --batch_size 40 --num_workers 4 --learning_rate 0.01 --num_epochs 50 --pretrain_path pretrained/STDCNet813M_73.91 --save_model_path final_model\gta5_aug_x --optimizer sgd
   ```
 
   | Augemtnation | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
   |--------------|----------------|------------|-----------------------------|
   | brightness   |      81.4      |     62.5   |          0m 59s             |
-  | contrast     |      0         |     0      |          0m 0s              |
+  | contrast     |      81.1      |     60.7   |          1m 2s              |
   | saturation   |      0         |     0      |          0m 0s              |
   | all          |      81.2      |     60.5   |          1m 0s              |
 
 ##### Domain shift GTA5 -> Cityscapes with augmentation
+  - To change pretrained model change "--pretrain_path" with the correct path
+
+  ```bash
+  train.py --task domain_shift --num_classes 19 --pretrain_path final_model\gta5_aug_x\best.pth --root_dir Cityscapes_ds/Cityspaces  --batch_size 40 --num_workers 4 --learning_rate 0.01 --num_epochs 50  --save_model_path final_model\domain_shift --optimizer sgd
+  ```
+
+  |                             GTA+aug -> Cityscapes                        |
+  | Augemtnation | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
+  |--------------|----------------|------------|-----------------------------|
+  | brightness   |      0         |     0      |          0m 0s              |
+  | contrast     |      0         |     0      |          0m 0s              |
+  | saturation   |      0         |     0      |          0m 0s              |
+  | all          |      0         |     0      |          0m 0s              |
+
+
+##### Domain adaptation GTA5 -> Cityscapes 
+
+  ```bash
+  train.py --task domain_adaptation --source_path GTA5_ds --target_path Cityscapes_ds/Cityspaces --num_classes 19 --pretrain_path pretrained/STDCNet813M_73.91 --batch_size 40 --num_workers 4 --lambda_adv 0.0001 --num_epochs 50  --save_model_path final_model\domain_adaptation --optimizer sgd
+  ```
