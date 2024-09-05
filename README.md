@@ -98,7 +98,7 @@ This repository houses the code for our project in the "Advanced Machine Learnin
   | Reinhard     |      56.0      |     20.9   |
 
 
-##### Domain adaptation GTA5 -> Cityscapes 
+##### Domain adaptation GTA5 -> Cityscapes and extra d point
 
   ```bash
   train.py --task domain_adaptation --source_path GTA5_ds --target_path Cityscapes_ds/Cityspaces --num_classes 19 --pretrain_path pretrained/STDCNet813M_73.91 --batch_size 40 --num_workers 4 --lambda_adv 0.0001 --num_epochs 50  --save_model_path final_model\domain_adaptation --optimizer sgd
