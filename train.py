@@ -423,7 +423,7 @@ def parse_args():
 
     return parse.parse_args()
 
-def default():
+def default_main():
 
     ## dataset
     n_classes = args.num_classes
@@ -469,33 +469,32 @@ def default():
     # final test
     val(args, model, dataloader_val)
 
-def train_cityscapes(args):
-    # Dataset: Cityscapes
-    n_classes = args.num_classes  # Numero di classi semantiche
-
-    citySpaces_path = args.citySpaces_path
-    pretrainedModel_path = args.pretrain_path
-
+def semantic_segmentation_cityscapes(args):
     # Dataset di addestramento
-    train_dataset = CityScapesDataset(root_dir=citySpaces_path, mode='train', dimension=(256, 128))
+    train_dataset = CityScapesDataset(root_dir=args.root_dir, mode='train', dimension=(512, 1024))
     dataloader_train = DataLoader(train_dataset,
                                 batch_size=args.batch_size,
                                 shuffle=False,
                                 num_workers=args.num_workers,
                                 pin_memory=False,
                                 drop_last=True)
-    print(args.batch_size)
+    #for our test
+    image, label = train_dataset[0]
+    show_image_and_label(image,label)
 
     # Dataset di validazione
-    val_dataset = CityScapesDataset(root_dir=citySpaces_path, mode='val', dimension=(256, 128))
+    val_dataset = CityScapesDataset(root_dir=args.root_dir, mode='val', dimension=(512, 1024))
     dataloader_val = DataLoader(val_dataset,
                                 batch_size=1,
                                 shuffle=False,
                                 num_workers=args.num_workers,
                                 drop_last=False)
+    
+    print(len(train_dataset))
+    print(len(val_dataset))
 
     # Modello: STDC pre-addestrato su ImageNet
-    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=pretrainedModel_path)
+    model = BiSeNet(backbone=args.backbone, n_classes=args.num_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
 
     # Utilizzo della GPU se disponibile
     device = torch.device("cuda" if torch.cuda.is_available() and args.use_gpu else "cpu")
@@ -517,12 +516,9 @@ def train_cityscapes(args):
     # final test
     val(args, model, dataloader_val)
 
-def train_gta(args):
-    ## dataset
-    n_classes = args.num_classes
-    mode = args.mode
-    
-    train_dataset = Gta5Dataset(root = args.gta5_path)
+def semantic_segmentation_gta(args):
+    # Dataset di addestramento
+    train_dataset = Gta5Dataset(root=args.root_dir, mode='train', augmentation=args.augmentation)
     dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
@@ -535,8 +531,8 @@ def train_gta(args):
     # Display the image and label using the same function as before
     show_image_and_label(image, label)
 
-    # Load a batch of images and labels from the DataLoader
-    val_dataset = Gta5Dataset(root = args.gta5_path)
+    # Dataset di validazione
+    val_dataset = Gta5Dataset(root=args.root_dir, mode='val', augmentation=args.augmentation)
     dataloader_val = DataLoader(val_dataset,
                         batch_size=1,
                         shuffle=False,
@@ -547,7 +543,7 @@ def train_gta(args):
     print(len(val_dataset))
 
     ## model
-    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
+    model = BiSeNet(backbone=args.backbone, n_classes=args.num_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
 
     if torch.cuda.is_available() and args.use_gpu:
         model = torch.nn.DataParallel(model).cuda()
@@ -567,6 +563,104 @@ def train_gta(args):
     train(args, model, optimizer, dataloader_train, dataloader_val)
     # final test
     val(args, model, dataloader_val)
+
+def domain_shift_gta_cityscapes(args):
+
+    #citySpaces_path ="C:\\Users\\miria\\Desktop\\AML\\Cityscapes\\Cityspaces"
+    pretrainedModel_GTA_path = '/home/paolo/Desktop/AML/3_final_model_GTA5_no_aug/best.pth'
+
+    # Modello: STDC pre-addestrato su ImageNet con fine tuning su GTA5
+    model = BiSeNet(backbone=args.backbone, n_classes=args.num_classes, use_conv_last=args.use_conv_last)
+    model.load_state_dict(torch.load(args.pretrain_path))
+    model.eval()
+
+
+    # Dataset di validazione
+    val_dataset = CityScapesDataset(root_dir=args.root_dir, mode='val', dimension=(512, 1024))
+    dataloader_val = DataLoader(val_dataset,
+                                batch_size=1,
+                                shuffle=False,
+                                num_workers=args.num_workers,
+                                drop_last=False)
+
+
+    if torch.cuda.is_available() and args.use_gpu:
+        model = torch.nn.DataParallel(model).cuda()
+
+
+    ## train loop
+    #train(args, model, optimizer, dataloader_train, dataloader_val)
+    # final test
+    val(args, model, dataloader_val)
+
+def Massimo_main():
+
+    args = parse_args()
+
+    if(args.task == 'semantic_segmentation'):
+        print("Task: Semantic segmentation")
+        if(args.dataset == 'cityscapes'):
+            semantic_segmentation_cityscapes(args)
+        elif(args.dataset == 'gta5'):
+            semantic_segmentation_gta(args)
+        else:
+            print("Dataset not valid")
+
+    elif(args.task == 'domain_shift'):
+        print("Task: Domain shift")
+
+    elif(args.task == 'domain_adaptation'):
+        print("Task: Domain adaptation")
+
+    else:
+        print("Task: Not valid")
+
+
+    ## dataset
+    n_classes = args.num_classes
+
+    mode = args.mode
+
+    train_dataset = CityScapesDataset(mode)
+    dataloader_train = DataLoader(train_dataset,
+                    batch_size=args.batch_size,
+                    shuffle=False,
+                    num_workers=args.num_workers,
+                    pin_memory=False,
+                    drop_last=True)
+    
+
+    val_dataset = CityScapesDataset(mode='val')
+    dataloader_val = DataLoader(val_dataset,
+                       batch_size=1,
+                       shuffle=False,
+                       num_workers=args.num_workers,
+                       drop_last=False)
+
+    ## model
+    model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
+
+    if torch.cuda.is_available() and args.use_gpu:
+        model = torch.nn.DataParallel(model).cuda()
+
+    ## optimizer
+    # build optimizer
+    if args.optimizer == 'rmsprop':
+        optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
+    elif args.optimizer == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
+    elif args.optimizer == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
+    else:  # rmsprop
+        print('not supported optimizer \n')
+        return None
+
+    ## train loop
+    train(args, model, optimizer, dataloader_train, dataloader_val)
+    # final test
+    val(args, model, dataloader_val)
+
+
 
 def train_gta_augmentation(args):
     ## dataset
